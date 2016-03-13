@@ -3,6 +3,7 @@ package tflow
 import (
 	"bytes"
 	"encoding/binary"
+	"fmt"
 	"reflect"
 	"unsafe"
 
@@ -11,37 +12,38 @@ import (
 
 type Packet []interface{}
 
-func FormatPacket(id int, payload interface{}) Packet {
+func BuildPacket(id byte, payload interface{}) Packet {
 	if structs.IsStruct(payload) {
 		pl := structs.Values(payload)
-		size := 3
+		var size int16
 		for i := 0; i < len(pl); i++ {
-			size += int(unsafe.Sizeof(pl[i]))
+			size += int16(unsafe.Sizeof(pl[i]))
 		}
-		buf := make(Packet, 2)
-		buf[0] = (3 + size) << 3
-		buf[1] = id
+		buf := make(Packet, 1)
+		buf[0] = id
 		return append(buf, pl...)
 	}
-	buf := make(Packet, 3)
-	buf[0] = (3 + unsafe.Sizeof(payload)) << 3
-	buf[1] = id
-	buf[2] = payload
+	buf := make(Packet, 2)
+	buf[0] = id
+	buf[1] = payload
 	return buf
 }
 
-func BuildPacket(p Packet) []byte {
+func FormatPacket(p Packet) []byte {
 	buf := new(bytes.Buffer)
 	for i := 0; i < len(p); i++ {
 		switch reflect.ValueOf(p[i]).Kind() {
-		case reflect.Int, reflect.Int16, reflect.Int32, reflect.Int64:
-			b := new(bytes.Buffer)
-			binary.Write(b, binary.LittleEndian, p[i])
-			b.WriteTo(buf)
+		case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64, reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+			binary.Write(buf, binary.LittleEndian, p[i])
 		case reflect.String:
-			b := EncodeString(p[i].(string))
-			buf.Write(b)
+			buf.Write(EncodeString(p[i].(string)))
+		default:
+			fmt.Printf("Did not recognise %v (its type is %v)", p[i], reflect.TypeOf(p[i]).Name())
 		}
 	}
-	return buf.Bytes()
+	b := new(bytes.Buffer)
+	binary.Write(b, binary.LittleEndian, int16(len(buf.Bytes())))
+	buf.WriteTo(b)
+	fmt.Println(b.Bytes())
+	return b.Bytes()
 }
