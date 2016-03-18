@@ -4,8 +4,8 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
+	"io"
 	"reflect"
-	"unsafe"
 
 	"github.com/fatih/structs"
 )
@@ -15,10 +15,6 @@ type Packet []interface{}
 func BuildPacket(id byte, payload interface{}) Packet {
 	if structs.IsStruct(payload) {
 		pl := structs.Values(payload)
-		var size int16
-		for i := 0; i < len(pl); i++ {
-			size += int16(unsafe.Sizeof(pl[i]))
-		}
 		buf := make(Packet, 1)
 		buf[0] = id
 		return append(buf, pl...)
@@ -42,8 +38,23 @@ func FormatPacket(p Packet) []byte {
 		}
 	}
 	b := new(bytes.Buffer)
-	binary.Write(b, binary.LittleEndian, int16(len(buf.Bytes())))
+	binary.Write(b, binary.LittleEndian, int16(len(buf.Bytes()))+2)
 	buf.WriteTo(b)
 	fmt.Println(b.Bytes())
 	return b.Bytes()
+}
+
+func ParsePacket(r io.Reader) {
+	lb := make([]byte, 2)
+	r.Read(lb)
+	lbr := bytes.NewReader(lb)
+	var l int16
+	binary.Read(lbr, binary.LittleEndian, &l)
+	fmt.Printf("Length of packet: %v\n", l)
+	id := make([]byte, 1)
+	r.Read(id)
+	fmt.Printf("Packet id: %v\n", id)
+	raw := make([]byte, l-2)
+	r.Read(raw)
+	PacketHandlers[id[0]](raw)
 }

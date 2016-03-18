@@ -5,9 +5,9 @@ import (
 	"encoding/binary"
 )
 
-func PutVarint(val int, size uint) []byte {
+func PutUvarint(val int, size uint) []byte {
 	buf := make([]byte, 8)
-	binary.PutVarint(buf, int64(val))
+	binary.PutUvarint(buf, uint64(val))
 	if size > 0 {
 		return buf[:size]
 	}
@@ -15,6 +15,11 @@ func PutVarint(val int, size uint) []byte {
 }
 
 func EncodeString(text string) []byte {
-	buf := PutVarint(len(text), 0)
+	buf := PutUvarint(len(text), 0)
 	return append(buf, []byte(text)...)
+}
+
+func DecodeString(raw []byte) string {
+	r, _ := binary.Uvarint(raw)
+	return string(raw[len(raw)-int(r)-1 : len(raw)-(len(raw)-int(r))+1])
 }
