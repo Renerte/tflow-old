@@ -44,7 +44,7 @@ func FormatPacket(p Packet) []byte {
 	return b.Bytes()
 }
 
-func ParsePacket(r io.Reader) {
+func ParsePacket(r io.Reader) error {
 	lb := make([]byte, 2)
 	r.Read(lb)
 	lbr := bytes.NewReader(lb)
@@ -56,5 +56,8 @@ func ParsePacket(r io.Reader) {
 	fmt.Printf("Packet id: %v\n", id)
 	raw := make([]byte, l-2)
 	r.Read(raw)
-	PacketHandlers[id[0]](raw)
+	if err := PacketHandlers[id[0]](raw); err != nil {
+		return err
+	}
+	return nil
 }
